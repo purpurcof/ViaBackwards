@@ -19,6 +19,7 @@ package com.viaversion.viabackwards.protocol.v1_21_6to1_21_5;
 
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.Tag;
+import com.viaversion.viabackwards.ViaBackwards;
 import com.viaversion.viabackwards.api.BackwardsProtocol;
 import com.viaversion.viabackwards.api.data.BackwardsMappingData;
 import com.viaversion.viabackwards.api.rewriters.SoundRewriter;
@@ -29,6 +30,7 @@ import com.viaversion.viabackwards.protocol.v1_21_6to1_21_5.provider.DialogViewP
 import com.viaversion.viabackwards.protocol.v1_21_6to1_21_5.rewriter.BlockItemPacketRewriter1_21_6;
 import com.viaversion.viabackwards.protocol.v1_21_6to1_21_5.rewriter.ComponentRewriter1_21_6;
 import com.viaversion.viabackwards.protocol.v1_21_6to1_21_5.rewriter.EntityPacketRewriter1_21_6;
+import com.viaversion.viabackwards.protocol.v1_21_6to1_21_5.rewriter.RegistryDataRewriter1_21_6;
 import com.viaversion.viabackwards.protocol.v1_21_6to1_21_5.storage.ChestDialogStorage;
 import com.viaversion.viabackwards.protocol.v1_21_6to1_21_5.storage.ClickEvents;
 import com.viaversion.viabackwards.protocol.v1_21_6to1_21_5.storage.RegistryAndTags;
@@ -61,6 +63,7 @@ import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPac
 import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPackets1_21_6;
 import com.viaversion.viaversion.rewriter.AttributeRewriter;
 import com.viaversion.viaversion.rewriter.ParticleRewriter;
+import com.viaversion.viaversion.rewriter.RegistryDataRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
 import com.viaversion.viaversion.util.Key;
@@ -75,6 +78,7 @@ public final class Protocol1_21_6To1_21_5 extends BackwardsProtocol<ClientboundP
     private final ParticleRewriter<ClientboundPacket1_21_6> particleRewriter = new ParticleRewriter<>(this);
     private final NBTComponentRewriter<ClientboundPacket1_21_6> translatableRewriter = new ComponentRewriter1_21_6(this);
     private final TagRewriter<ClientboundPacket1_21_6> tagRewriter = new TagRewriter<>(this);
+    private final RegistryDataRewriter registryDataRewriter = new RegistryDataRewriter1_21_6(this);
 
     public Protocol1_21_6To1_21_5() {
         super(ClientboundPacket1_21_6.class, ClientboundPacket1_21_5.class, ServerboundPacket1_21_6.class, ServerboundPacket1_21_5.class);
@@ -83,6 +87,8 @@ public final class Protocol1_21_6To1_21_5 extends BackwardsProtocol<ClientboundP
     @Override
     protected void registerPackets() {
         super.registerPackets();
+
+        registerClientbound(ClientboundConfigurationPackets1_21_6.REGISTRY_DATA, registryDataRewriter::handle);
 
         registerClientbound(ClientboundPackets1_21_6.UPDATE_TAGS, this::updateTags);
         registerClientbound(ClientboundConfigurationPackets1_21_6.UPDATE_TAGS, this::updateTags);
@@ -144,10 +150,15 @@ public final class Protocol1_21_6To1_21_5 extends BackwardsProtocol<ClientboundP
             final short difficulty = wrapper.read(Types.UNSIGNED_BYTE);
             wrapper.write(Types.VAR_INT, (int) difficulty);
         });
+        registerServerbound(ServerboundPackets1_21_5.CHAT_COMMAND, this::handleClickEvents);
+        registerServerbound(ServerboundPackets1_21_5.CHAT_COMMAND_SIGNED, this::handleClickEvents);
 
         // Are you sure you want to see this? This is your last chance to turn back.
         registerClientbound(ClientboundPackets1_21_6.SHOW_DIALOG, null, wrapper -> {
             wrapper.cancel();
+            if (!ViaBackwards.getConfig().dialogsViaChests()) {
+                return;
+            }
 
             final RegistryAndTags registryAndTags = wrapper.user().get(RegistryAndTags.class);
             final ServerLinks serverLinks = wrapper.user().get(ServerLinks.class);
@@ -164,6 +175,9 @@ public final class Protocol1_21_6To1_21_5 extends BackwardsProtocol<ClientboundP
         });
         registerClientbound(ClientboundConfigurationPackets1_21_6.SHOW_DIALOG, null, wrapper -> {
             wrapper.cancel();
+            if (!ViaBackwards.getConfig().dialogsViaChests()) {
+                return;
+            }
 
             final RegistryAndTags registryAndTags = wrapper.user().get(RegistryAndTags.class);
             final ServerLinks serverLinks = wrapper.user().get(ServerLinks.class);
@@ -177,9 +191,6 @@ public final class Protocol1_21_6To1_21_5 extends BackwardsProtocol<ClientboundP
 
         registerClientbound(ClientboundPackets1_21_6.SERVER_LINKS, this::storeServerLinks);
         registerClientbound(ClientboundConfigurationPackets1_21_6.SERVER_LINKS, this::storeServerLinks);
-
-        registerServerbound(ServerboundPackets1_21_5.CHAT_COMMAND, this::handleClickEvents);
-        registerServerbound(ServerboundPackets1_21_5.CHAT_COMMAND_SIGNED, this::handleClickEvents);
 
         // The ones below are specific to the chest dialog view provider
         registerServerbound(ServerboundPackets1_21_5.CONTAINER_CLOSE, wrapper -> {
@@ -285,6 +296,10 @@ public final class Protocol1_21_6To1_21_5 extends BackwardsProtocol<ClientboundP
 
     private void clearDialog(final PacketWrapper wrapper) {
         wrapper.cancel();
+        if (!ViaBackwards.getConfig().dialogsViaChests()) {
+            return;
+        }
+
         final DialogViewProvider provider = Via.getManager().getProviders().get(DialogViewProvider.class);
         provider.closeDialog(wrapper.user());
     }
@@ -341,6 +356,11 @@ public final class Protocol1_21_6To1_21_5 extends BackwardsProtocol<ClientboundP
     @Override
     public BlockItemPacketRewriter1_21_6 getItemRewriter() {
         return itemRewriter;
+    }
+
+    @Override
+    public RegistryDataRewriter getRegistryDataRewriter() {
+        return registryDataRewriter;
     }
 
     @Override
