@@ -74,7 +74,9 @@ public final class Protocol1_17To1_16_4 extends BackwardsProtocol<ClientboundPac
         translatableRewriter.registerBossEvent(ClientboundPackets1_17.BOSS_EVENT);
         translatableRewriter.registerComponentPacket(ClientboundPackets1_17.DISCONNECT);
         translatableRewriter.registerTabList(ClientboundPackets1_17.TAB_LIST);
+        translatableRewriter.registerSetPlayerTeam1_13(ClientboundPackets1_17.SET_PLAYER_TEAM);
         translatableRewriter.registerOpenScreen1_14(ClientboundPackets1_17.OPEN_SCREEN);
+        translatableRewriter.registerSetObjective(ClientboundPackets1_17.SET_OBJECTIVE);
         translatableRewriter.registerPing();
 
         SoundRewriter<ClientboundPackets1_17> soundRewriter = new SoundRewriter<>(this);
@@ -102,7 +104,7 @@ public final class Protocol1_17To1_16_4 extends BackwardsProtocol<ClientboundPac
 
             // Put them into the hardcoded order of Vanilla tags (and only those), rewrite ids
             for (RegistryType type : TAG_REGISTRY_TYPES) {
-                List<TagData> tagList = tags.get(type.resourceLocation());
+                List<TagData> tagList = tags.get(type.identifier());
                 if (tagList == null) {
                     // Higher versions may not send the otherwise expected tags
                     wrapper.write(Types.VAR_INT, 0);
